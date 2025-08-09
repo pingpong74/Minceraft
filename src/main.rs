@@ -5,7 +5,7 @@ mod renderer;
 use application::Application;
 use renderer::VulkanContext;
 
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::EventLoop;
 
 fn main() {
     let event_loop = EventLoop::new();

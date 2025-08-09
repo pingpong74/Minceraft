@@ -11,7 +11,7 @@ use vulkano::{
     format::Format,
     image::{Image, ImageUsage, view::ImageView},
     instance::{Instance, InstanceCreateFlags, InstanceCreateInfo},
-    memory::allocator::StandardMemoryAllocator,
+    memory::allocator::{self, StandardMemoryAllocator},
     pipeline::{
         PipelineShaderStageCreateInfo,
         graphics::{
@@ -67,7 +67,12 @@ mod fragment_shader {
 }
 
 struct FrameData {
-    cmd_builder: Arc<AutoCommandBufferBuilder<_>>,
+    cmd_builder: Arc<
+        AutoCommandBufferBuilder<
+            PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
+            Arc<StandardCommandBufferAllocator>,
+        >,
+    >,
     framebuffers: Arc<Framebuffer>,
 }
 
@@ -103,6 +108,7 @@ impl FrameData {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone)]
 pub struct VulkanContext {
     instance: Arc<Instance>,
@@ -119,6 +125,7 @@ pub struct VulkanContext {
     framebuffers: Arc<FrameData>,
 }
 
+#[allow(unused)]
 impl VulkanContext {
     pub fn new(window: Arc<Window>, event_loop: &EventLoop<()>) -> Self {
         let library = VulkanLibrary::new().expect("no local Vulkan library/DLL");
@@ -366,4 +373,6 @@ impl VulkanContext {
     pub fn create_memory_allocator(&self) -> StandardMemoryAllocator {
         return StandardMemoryAllocator::new_default(self.device.clone());
     }
+
+    pub fn update_camera() {}
 }

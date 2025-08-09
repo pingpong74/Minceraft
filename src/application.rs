@@ -4,7 +4,7 @@ use vulkano::memory::allocator::StandardMemoryAllocator;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder, WindowId},
+    window::{Window, WindowBuilder},
 };
 
 pub struct Application {
