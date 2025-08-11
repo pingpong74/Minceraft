@@ -1,9 +1,7 @@
 # Minecraft like game in Rust
 
-## Features 
+## Features
 
-1. Uses Vulkan to allow for greate parrallism on GPU
+1. Uses wgpu, this allows greate portability whilst not compromising on performance
 2. Use compute/Mesh shaders to create the geometry
-3. Vertex pulling optimizations 
-
-
+3. Vertex pulling optimizations
