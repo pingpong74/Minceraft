@@ -1,8 +1,12 @@
 use std::sync::Arc;
 
-use wgpu::{hal::noop::Encoder, util::DeviceExt};
+use wgpu::{
+    hal::{noop::Encoder, vulkan::Instance},
+    util::DeviceExt,
+};
 use winit::window::Window;
 
+use super::camera::Camera;
 use super::mesh;
 
 #[allow(unused)]
@@ -23,7 +27,7 @@ impl GpuContext {
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::VULKAN,
+            backends: wgpu::Backends::PRIMARY,
             #[cfg(target_arch = "wasm32")]
             backends: wgpu::Backends::GL,
             ..Default::default()
@@ -40,9 +44,7 @@ impl GpuContext {
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an sRGB surface texture. Using a different
-        // one will result in all the colors coming out darker. If you want to support non
-        // sRGB surfaces, you'll need to account for that when drawing to the frame.
+
         let surface_format = surface_caps
             .formats
             .iter()
@@ -124,21 +126,61 @@ impl GpuContext {
 
 pub struct RenderContext {
     pipeline: wgpu::RenderPipeline,
+    camera_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    camera_buffer: wgpu::Buffer,
 }
 
 impl RenderContext {
-    pub async fn new(gpu_context: &GpuContext) -> anyhow::Result<RenderContext> {
+    pub async fn new(gpu_context: &GpuContext, camera: &Camera) -> anyhow::Result<RenderContext> {
         let shader = gpu_context
             .device
             .create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
+
+        let camera_buffer =
+            gpu_context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Camera buffer"),
+                    contents: bytemuck::cast_slice(&camera.get_uniforms().view_proj),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
+        let camera_bind_group_layout =
+            gpu_context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: Some("camera_bind_group_layout"),
+                });
+
+        let camera_bind_group = gpu_context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &camera_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                }],
+                label: Some("camera_bind_group"),
+            });
 
         let render_pipeline_layout =
             gpu_context
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&camera_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -202,9 +244,21 @@ impl RenderContext {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
+        let index_buffer =
+            gpu_context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: bytemuck::cast_slice(mesh::INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+
         return Ok(RenderContext {
             pipeline: render_pipeline,
             vertex_buffer: vertex_buffer,
+            index_buffer: index_buffer,
+            camera_buffer: camera_buffer,
+            camera_bind_group: camera_bind_group,
         });
     }
 }
@@ -215,9 +269,9 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Renderer> {
+    pub async fn new(window: Arc<Window>, camera: &Camera) -> anyhow::Result<Renderer> {
         let gpu_context = GpuContext::new(window).await?;
-        let rcx = RenderContext::new(&gpu_context).await?;
+        let rcx = RenderContext::new(&gpu_context, camera).await?;
 
         // need to impl
         return Ok(Renderer {
@@ -230,7 +284,7 @@ impl Renderer {
         self.gpu_context.resize(width, height);
     }
 
-    pub fn render(&mut self) -> anyhow::Result<()> {
+    pub fn render(&mut self, camera: &Camera) -> anyhow::Result<()> {
         self.gpu_context.request_redraw();
 
         if !self.gpu_context.is_configured() {
@@ -268,10 +322,20 @@ impl Renderer {
             });
 
             _render_pass.set_pipeline(&self.render_context.pipeline);
+            _render_pass.set_bind_group(0, &self.render_context.camera_bind_group, &[]);
             _render_pass.set_vertex_buffer(0, self.render_context.vertex_buffer.slice(..));
-            _render_pass.draw(0..(mesh::VERTICES.len() as u32), 0..1);
+            _render_pass.set_index_buffer(
+                self.render_context.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
+            _render_pass.draw_indexed(0..(mesh::INDICES.len() as u32), 0, 0..1)
         }
 
+        self.gpu_context.queue.write_buffer(
+            &self.render_context.camera_buffer,
+            0,
+            bytemuck::cast_slice(&camera.get_uniforms().view_proj),
+        );
         self.gpu_context
             .queue
             .submit(std::iter::once(encoder.finish()));
