@@ -1,7 +1,12 @@
 use super::renderer::Renderer;
 
 use std::sync::Arc;
-use winit::{application::ApplicationHandler, window::Window};
+use winit::{
+    application::ApplicationHandler,
+    event::{KeyEvent, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
+    window::Window,
+};
 
 pub enum GameState {
     Init,
@@ -27,6 +32,8 @@ impl Application {
     }
 }
 
+#[allow(unused)]
+#[allow(non_snake_case)]
 impl ApplicationHandler<GameState> for Application {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
@@ -76,6 +83,31 @@ impl ApplicationHandler<GameState> for Application {
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
+        let renderer = match &mut self.renderer {
+            Some(c) => c,
+            None => return,
+        };
+
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(size) => renderer.resize(size.width, size.height),
+            WindowEvent::RedrawRequested => {
+                renderer.render();
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(code),
+                        state,
+                        ..
+                    },
+                ..
+            } => match (code, state.is_pressed()) {
+                (KeyCode::Escape, true) => event_loop.exit(),
+                _ => {}
+            },
+            _ => {}
+        }
     }
 
     fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: GameState) {}
