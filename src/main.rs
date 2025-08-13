@@ -2,6 +2,7 @@ mod application;
 mod camera;
 mod mesh;
 mod renderer;
+mod texture;
 
 use application::Application;
 use winit::event_loop::{EventLoop, EventLoopBuilder};

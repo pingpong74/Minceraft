@@ -1,13 +1,26 @@
 use std::sync::Arc;
 
-use wgpu::{
-    hal::{noop::Encoder, vulkan::Instance},
-    util::DeviceExt,
-};
+use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 use super::camera::Camera;
 use super::mesh;
+use super::texture::Texture;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum CompareFunction {
+    Undefined = 0,
+    Never = 1,
+    Less = 2,
+    Equal = 3,
+    LessEqual = 4,
+    Greater = 5,
+    NotEqual = 6,
+    GreaterEqual = 7,
+    Always = 8,
+}
 
 #[allow(unused)]
 pub struct GpuContext {
@@ -17,8 +30,8 @@ pub struct GpuContext {
     sufrace_config: wgpu::SurfaceConfiguration,
     is_surface_configured: bool,
     adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
 }
 
 impl GpuContext {
@@ -125,6 +138,7 @@ impl GpuContext {
 }
 
 pub struct RenderContext {
+    depth_texture: Texture,
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
@@ -134,9 +148,29 @@ pub struct RenderContext {
 
 impl RenderContext {
     pub async fn new(gpu_context: &GpuContext, camera: &Camera) -> anyhow::Result<RenderContext> {
-        let shader = gpu_context
-            .device
-            .create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
+        let depth_texture = Texture::create_depth_texture(
+            gpu_context,
+            gpu_context.sufrace_config.width.max(1),
+            gpu_context.sufrace_config.height.max(1),
+        );
+
+        let vertex_buffer =
+            gpu_context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: bytemuck::cast_slice(mesh::VERTICES),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+
+        let index_buffer =
+            gpu_context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: bytemuck::cast_slice(mesh::INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
 
         let camera_buffer =
             gpu_context
@@ -146,6 +180,10 @@ impl RenderContext {
                     contents: bytemuck::cast_slice(&camera.get_uniforms().view_proj),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
+
+        let shader = gpu_context
+            .device
+            .create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
 
         let camera_bind_group_layout =
             gpu_context
@@ -222,38 +260,24 @@ impl RenderContext {
                         // Requires Features::CONSERVATIVE_RASTERIZATION
                         conservative: false,
                     },
-                    depth_stencil: None,
+                    depth_stencil: Some(wgpu::DepthStencilState {
+                        format: wgpu::TextureFormat::Depth32Float,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        stencil: wgpu::StencilState::default(),
+                        bias: wgpu::DepthBiasState::default(),
+                    }),
                     multisample: wgpu::MultisampleState {
                         count: 1,
                         mask: !0,
                         alpha_to_coverage_enabled: false,
                     },
-                    // If the pipeline will be used with a multiview render pass, this
-                    // indicates how many array layers the attachments will have.
                     multiview: None,
-                    // Useful for optimizing shader compilation on Android
                     cache: None,
                 });
 
-        let vertex_buffer =
-            gpu_context
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex Buffer"),
-                    contents: bytemuck::cast_slice(mesh::VERTICES),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-
-        let index_buffer =
-            gpu_context
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Index Buffer"),
-                    contents: bytemuck::cast_slice(mesh::INDICES),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
         return Ok(RenderContext {
+            depth_texture: depth_texture,
             pipeline: render_pipeline,
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
@@ -281,6 +305,8 @@ impl Renderer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        self.render_context.depth_texture =
+            Texture::create_depth_texture(&self.gpu_context, width, height);
         self.gpu_context.resize(width, height);
     }
 
@@ -316,7 +342,14 @@ impl Renderer {
                     },
                     depth_slice: None,
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.render_context.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
