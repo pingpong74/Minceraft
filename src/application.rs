@@ -2,6 +2,7 @@ use super::camera::{Camera, CameraController};
 use super::renderer::Renderer;
 
 use std::sync::Arc;
+use winit::window::CursorGrabMode;
 use winit::{
     application::ApplicationHandler,
     event::{DeviceEvent, WindowEvent},
@@ -66,6 +67,10 @@ impl ApplicationHandler<GameState> for Application {
                 .create_window(window_attributes)
                 .expect("Failed to create window"),
         );
+
+        /*window
+        .set_cursor_grab(CursorGrabMode::Locked)
+        .expect("Failed to set cursor mode");*/
 
         let size = window.inner_size();
 
@@ -146,7 +151,7 @@ impl ApplicationHandler<GameState> for Application {
             None => return,
         };
 
-        let f = camera.target;
+        let f = camera.target - camera.eye;
 
         print!("\x1B[2J\x1B[1;1H");
         print!(

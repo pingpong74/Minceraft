@@ -28,26 +28,48 @@ impl Vertex {
 }
 
 pub const VERTICES: &[Vertex] = &[
+    // Front face
     Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // A
+        position: [-0.5, -0.5, 0.5],
+        color: [1.0, 0.0, 0.0],
+    }, // 0
     Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // B
+        position: [0.5, -0.5, 0.5],
+        color: [0.0, 1.0, 0.0],
+    }, // 1
     Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // C
+        position: [0.5, 0.5, 0.5],
+        color: [0.0, 0.0, 1.0],
+    }, // 2
     Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // D
+        position: [-0.5, 0.5, 0.5],
+        color: [1.0, 1.0, 0.0],
+    }, // 3
+    // Back face
     Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // E
+        position: [-0.5, -0.5, -0.5],
+        color: [1.0, 0.0, 1.0],
+    }, // 4
+    Vertex {
+        position: [0.5, -0.5, -0.5],
+        color: [0.0, 1.0, 1.0],
+    }, // 5
+    Vertex {
+        position: [0.5, 0.5, -0.5],
+        color: [0.5, 0.5, 0.5],
+    }, // 6
+    Vertex {
+        position: [-0.5, 0.5, -0.5],
+        color: [0.3, 0.7, 0.2],
+    }, // 7
 ];
 
-pub const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+pub const INDICES: &[u16] = &[
+    // Front face
+    0, 1, 2, 0, 2, 3, // Right face
+    1, 5, 6, 1, 6, 2, // Back face
+    5, 4, 7, 5, 7, 6, // Left face
+    4, 0, 3, 4, 3, 7, // Top face
+    3, 2, 6, 3, 6, 7, // Bottom face
+    4, 5, 1, 4, 1, 0,
+];

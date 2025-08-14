@@ -6,6 +6,7 @@ pub struct Texture {
     pub sampler: wgpu::Sampler,
 }
 
+//Use include_bytes! to load
 impl Texture {
     pub fn new(image_data: &[u8], gpu_context: &GpuContext) -> Self {
         let image = image::load_from_memory(image_data).unwrap();
