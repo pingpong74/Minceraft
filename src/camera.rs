@@ -150,8 +150,8 @@ impl Camera {
     //create a camera at 0,0,0 facing towards +x
     pub fn new(width: u32, height: u32) -> Self {
         return Camera {
-            eye: Point3::new(0.5, -0.5, 3.0),
-            target: Point3::new(0.27, -0.37, 2.0),
+            eye: Point3::new(2.0, 0.0, 0.0),
+            target: Point3::new(0.0, 0.0, 0.0),
             up: Vector3::unit_y(),
             aspect: width as f32 / height as f32,
             fovy: 45.0,

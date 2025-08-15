@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use wgpu::util::DeviceExt;
+use wgpu::wgc::id::markers::BindGroup;
 use winit::window::Window;
 
 use super::camera::Camera;
@@ -126,8 +127,7 @@ pub struct RenderContext {
     depth_texture: Texture,
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    instance_buffer: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
 }
 
@@ -139,22 +139,13 @@ impl RenderContext {
             gpu_context.sufrace_config.height.max(1),
         );
 
-        let vertex_buffer =
+        let instance_buffer =
             gpu_context
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex Buffer"),
-                    contents: bytemuck::cast_slice(mesh::VERTICES),
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(mesh::FACES),
                     usage: wgpu::BufferUsages::VERTEX,
-                });
-
-        let index_buffer =
-            gpu_context
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Index Buffer"),
-                    contents: bytemuck::cast_slice(mesh::INDICES),
-                    usage: wgpu::BufferUsages::INDEX,
                 });
 
         let camera_buffer =
@@ -216,7 +207,7 @@ impl RenderContext {
                     vertex: wgpu::VertexState {
                         module: &shader,
                         entry_point: Some("vs_main"),
-                        buffers: &[mesh::Vertex::get_vertex_descriptor()],
+                        buffers: &[mesh::FaceData::get_vertex_descriptor()],
                         compilation_options: Default::default(),
                     },
                     fragment: Some(wgpu::FragmentState {
@@ -237,12 +228,8 @@ impl RenderContext {
                         strip_index_format: None,
                         front_face: wgpu::FrontFace::Ccw,
                         cull_mode: Some(wgpu::Face::Back),
-                        // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                        // or Features::POLYGON_MODE_POINT
                         polygon_mode: wgpu::PolygonMode::Fill,
-                        // Requires Features::DEPTH_CLIP_CONTROL
                         unclipped_depth: false,
-                        // Requires Features::CONSERVATIVE_RASTERIZATION
                         conservative: false,
                     },
                     depth_stencil: Some(wgpu::DepthStencilState {
@@ -264,8 +251,7 @@ impl RenderContext {
         return Ok(RenderContext {
             depth_texture: depth_texture,
             pipeline: render_pipeline,
-            vertex_buffer: vertex_buffer,
-            index_buffer: index_buffer,
+            instance_buffer: instance_buffer,
             camera_buffer: camera_buffer,
             camera_bind_group: camera_bind_group,
         });
@@ -341,12 +327,8 @@ impl Renderer {
 
             _render_pass.set_pipeline(&self.render_context.pipeline);
             _render_pass.set_bind_group(0, &self.render_context.camera_bind_group, &[]);
-            _render_pass.set_vertex_buffer(0, self.render_context.vertex_buffer.slice(..));
-            _render_pass.set_index_buffer(
-                self.render_context.index_buffer.slice(..),
-                wgpu::IndexFormat::Uint16,
-            );
-            _render_pass.draw_indexed(0..(mesh::INDICES.len() as u32), 0, 0..1)
+            _render_pass.set_vertex_buffer(0, self.render_context.instance_buffer.slice(..));
+            _render_pass.draw(0..6, 0..mesh::FACES.len() as u32);
         }
 
         self.gpu_context.queue.write_buffer(

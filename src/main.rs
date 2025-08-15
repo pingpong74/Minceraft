@@ -1,4 +1,5 @@
 mod application;
+mod blocks;
 mod camera;
 mod mesh;
 mod renderer;
