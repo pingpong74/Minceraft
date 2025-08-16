@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
+use wgpu::BindGroupDescriptor;
 use wgpu::util::DeviceExt;
-use wgpu::wgc::id::markers::BindGroup;
+use wgpu::wgc::api::Noop;
 use winit::window::Window;
+
+use crate::blocks::create_texture_atlas;
 
 use super::camera::Camera;
 use super::mesh;
@@ -124,9 +127,11 @@ impl GpuContext {
 }
 
 pub struct RenderContext {
+    texture_atlas: Texture,
     depth_texture: Texture,
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
+    texture_bind_group: wgpu::BindGroup,
     instance_buffer: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
 }
@@ -138,6 +143,9 @@ impl RenderContext {
             gpu_context.sufrace_config.width.max(1),
             gpu_context.sufrace_config.height.max(1),
         );
+
+        create_texture_atlas();
+        let texture_atlas = Texture::new("textures/atlas.png", gpu_context);
 
         let instance_buffer =
             gpu_context
@@ -157,9 +165,13 @@ impl RenderContext {
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
 
-        let shader = gpu_context
+        let vertex_shader = gpu_context
             .device
-            .create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
+            .create_shader_module(wgpu::include_wgsl!("shaders/vertex_shader.wgsl"));
+
+        let fragment_shader = gpu_context
+            .device
+            .create_shader_module(wgpu::include_wgsl!("shaders/fragment_shader.wgsl"));
 
         let camera_bind_group_layout =
             gpu_context
@@ -189,12 +201,52 @@ impl RenderContext {
                 label: Some("camera_bind_group"),
             });
 
+        let texture_bind_group_layout =
+            gpu_context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("Texture binding layout"),
+                });
+
+        let texture_binding_group = gpu_context.device.create_bind_group(&BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_atlas.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture_atlas.sampler),
+                },
+            ],
+            label: Some("Texture binding group"),
+        });
+
         let render_pipeline_layout =
             gpu_context
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[&camera_bind_group_layout],
+                    bind_group_layouts: &[&camera_bind_group_layout, &texture_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -205,13 +257,13 @@ impl RenderContext {
                     label: Some("Render Pipeline"),
                     layout: Some(&render_pipeline_layout),
                     vertex: wgpu::VertexState {
-                        module: &shader,
+                        module: &vertex_shader,
                         entry_point: Some("vs_main"),
                         buffers: &[mesh::FaceData::get_vertex_descriptor()],
                         compilation_options: Default::default(),
                     },
                     fragment: Some(wgpu::FragmentState {
-                        module: &shader,
+                        module: &fragment_shader,
                         entry_point: Some("fs_main"),
                         targets: &[Some(wgpu::ColorTargetState {
                             format: gpu_context.sufrace_config.format,
@@ -249,11 +301,13 @@ impl RenderContext {
                 });
 
         return Ok(RenderContext {
+            texture_atlas: texture_atlas,
             depth_texture: depth_texture,
             pipeline: render_pipeline,
             instance_buffer: instance_buffer,
             camera_buffer: camera_buffer,
             camera_bind_group: camera_bind_group,
+            texture_bind_group: texture_binding_group,
         });
     }
 }
@@ -327,6 +381,7 @@ impl Renderer {
 
             _render_pass.set_pipeline(&self.render_context.pipeline);
             _render_pass.set_bind_group(0, &self.render_context.camera_bind_group, &[]);
+            _render_pass.set_bind_group(1, &self.render_context.texture_bind_group, &[]);
             _render_pass.set_vertex_buffer(0, self.render_context.instance_buffer.slice(..));
             _render_pass.draw(0..6, 0..mesh::FACES.len() as u32);
         }

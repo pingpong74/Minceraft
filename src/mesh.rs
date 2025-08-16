@@ -4,7 +4,7 @@ use super::blocks::Blocks;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 //Layout
 //      x       y       z       normal      BlockID
-//      4       4       4         8            4    = 24 bits
+//      4       4       4         8            8    = 28 bits
 //
 // Normals:
 // 0 => +x
@@ -24,7 +24,7 @@ impl FaceData {
                 | ((y & 0xF) << 24)
                 | ((z & 0xF) << 20)
                 | ((normal & 0xFF) << 12)
-                | ((block_id as u32 & 0xF) << 8),
+                | ((block_id as u32 & 0xFF) << 8),
         }
     }
 
@@ -43,15 +43,15 @@ impl FaceData {
 
 pub const FACES: &[FaceData] = &[
     // +X
-    FaceData::pack(1, 0, 0, 0, Blocks::Moss),
+    FaceData::pack(1, 0, 0, 0, Blocks::Stone),
     // -X
-    FaceData::pack(0, 0, 0, 1, Blocks::Moss),
+    FaceData::pack(0, 0, 0, 1, Blocks::Stone),
     // +Y
-    FaceData::pack(0, 1, 0, 2, Blocks::Moss),
+    FaceData::pack(0, 1, 0, 2, Blocks::Stone),
     // -Y
-    FaceData::pack(0, 0, 0, 3, Blocks::Moss),
+    FaceData::pack(0, 0, 0, 3, Blocks::Stone),
     // +Z
-    FaceData::pack(0, 0, 1, 4, Blocks::Moss),
+    FaceData::pack(0, 0, 1, 4, Blocks::Stone),
     // -Z
-    FaceData::pack(0, 0, 0, 5, Blocks::Moss),
+    FaceData::pack(0, 0, 0, 5, Blocks::Stone),
 ];

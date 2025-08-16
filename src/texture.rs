@@ -1,3 +1,5 @@
+use image::RgbaImage;
+
 use crate::renderer::GpuContext;
 
 pub struct Texture {
@@ -8,18 +10,16 @@ pub struct Texture {
 
 //Use include_bytes! to load
 impl Texture {
-    pub fn new(image_data: &[u8], gpu_context: &GpuContext) -> Self {
-        let image = image::load_from_memory(image_data).unwrap();
-        let rgba = image.to_rgba8();
+    pub fn new(path: &str, gpu_context: &GpuContext) -> Self {
+        let img = image::open(path).unwrap();
+        let rgba = img.to_rgba8();
 
         use image::GenericImageView;
-        let dimensions = image.dimensions();
+        let dimensions = img.dimensions();
 
         let texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            // All textures are stored as 3D, we represent our 2D texture
-            // by setting depth to 1.
             depth_or_array_layers: 1,
         };
         let texture = gpu_context.device.create_texture(&wgpu::TextureDescriptor {
@@ -40,9 +40,7 @@ impl Texture {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            // The actual pixel data
             &rgba,
-            // The layout of the texture
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * dimensions.0),
