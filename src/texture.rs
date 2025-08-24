@@ -1,5 +1,3 @@
-use image::RgbaImage;
-
 use crate::renderer::GpuContext;
 
 pub struct Texture {

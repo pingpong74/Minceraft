@@ -2,7 +2,6 @@ use super::camera::{Camera, CameraController};
 use super::renderer::Renderer;
 
 use std::sync::Arc;
-use winit::window::CursorGrabMode;
 use winit::{
     application::ApplicationHandler,
     event::{DeviceEvent, WindowEvent},

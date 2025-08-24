@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use wgpu::BindGroupDescriptor;
 use wgpu::util::DeviceExt;
-use wgpu::wgc::api::Noop;
 use winit::window::Window;
 
-use crate::blocks::create_texture_atlas;
+use crate::world::blocks::create_texture_atlas;
 
 use super::camera::Camera;
-use super::mesh;
 use super::texture::Texture;
+use crate::world::mesh;
 
 #[allow(unused)]
 pub struct GpuContext {
@@ -126,6 +125,7 @@ impl GpuContext {
     }
 }
 
+#[allow(unused)]
 pub struct RenderContext {
     texture_atlas: Texture,
     depth_texture: Texture,

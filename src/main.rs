@@ -1,12 +1,11 @@
 mod application;
-mod blocks;
 mod camera;
-mod mesh;
 mod renderer;
 mod texture;
+mod world;
 
 use application::Application;
-use winit::event_loop::{EventLoop, EventLoopBuilder};
+use winit::event_loop::EventLoop;
 
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]

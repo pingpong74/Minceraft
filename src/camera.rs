@@ -1,7 +1,7 @@
 use cgmath::{Matrix4, Point3, Vector3, prelude::*};
 
 use winit::{
-    event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
 };
 
