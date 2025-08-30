@@ -1,6 +1,8 @@
 use super::camera::{Camera, CameraController};
 use super::renderer::Renderer;
+use super::world::world::World;
 
+use cgmath::Point3;
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
@@ -20,6 +22,7 @@ pub enum GameState {
 pub struct Application {
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<GameState>>,
+    world: World,
     renderer: Option<Renderer>,
     camera: Option<Camera>,
     camera_controller: CameraController,
@@ -31,6 +34,7 @@ impl Application {
         #[cfg(target_arch = "wasm32")]
         let proxy = Some(event_loop.create_proxy());
         return Self {
+            world: World::new(1, Point3::new(2.0_f32, 0.0_f32, 0.0_f32)),
             renderer: None,
             camera: None,
             camera_controller: CameraController::new(SPEED, SENSTIVITY),
@@ -79,7 +83,8 @@ impl ApplicationHandler<GameState> for Application {
         {
             // If we are not on web we can use pollster to
             // await the
-            self.renderer = Some(pollster::block_on(Renderer::new(window, &camera)).unwrap());
+            self.renderer =
+                Some(pollster::block_on(Renderer::new(window, &camera, &self.world)).unwrap());
         }
 
         self.camera = Some(camera);

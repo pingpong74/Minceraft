@@ -5,10 +5,13 @@ use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 use crate::world::blocks::create_texture_atlas;
+use crate::world::world::World;
 
 use super::camera::Camera;
 use super::texture::Texture;
 use crate::world::mesh;
+
+use cgmath::Point3;
 
 #[allow(unused)]
 pub struct GpuContext {
@@ -132,7 +135,6 @@ pub struct RenderContext {
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     texture_bind_group: wgpu::BindGroup,
-    instance_buffer: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
 }
 
@@ -146,15 +148,6 @@ impl RenderContext {
 
         create_texture_atlas();
         let texture_atlas = Texture::new("textures/atlas.png", gpu_context);
-
-        let instance_buffer =
-            gpu_context
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Instance Buffer"),
-                    contents: bytemuck::cast_slice(mesh::FACES),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
 
         let camera_buffer =
             gpu_context
@@ -304,7 +297,6 @@ impl RenderContext {
             texture_atlas: texture_atlas,
             depth_texture: depth_texture,
             pipeline: render_pipeline,
-            instance_buffer: instance_buffer,
             camera_buffer: camera_buffer,
             camera_bind_group: camera_bind_group,
             texture_bind_group: texture_binding_group,
@@ -315,17 +307,38 @@ impl RenderContext {
 pub struct Renderer {
     gpu_context: GpuContext,
     render_context: RenderContext,
+    instance_buffer: wgpu::Buffer,
 }
 
 impl Renderer {
-    pub async fn new(window: Arc<Window>, camera: &Camera) -> anyhow::Result<Renderer> {
+    pub async fn new(
+        window: Arc<Window>,
+        camera: &Camera,
+        world: &World,
+    ) -> anyhow::Result<Renderer> {
         let gpu_context = GpuContext::new(window).await?;
         let rcx = RenderContext::new(&gpu_context, camera).await?;
+
+        let instance_buffer =
+            gpu_context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(
+                        &world
+                            .chunks
+                            .get(&Point3::new(0_i32, 0_i32, 0_i32))
+                            .unwrap()
+                            .face,
+                    ),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
 
         // need to impl
         return Ok(Renderer {
             render_context: rcx,
             gpu_context: gpu_context,
+            instance_buffer: instance_buffer,
         });
     }
 
@@ -382,7 +395,7 @@ impl Renderer {
             _render_pass.set_pipeline(&self.render_context.pipeline);
             _render_pass.set_bind_group(0, &self.render_context.camera_bind_group, &[]);
             _render_pass.set_bind_group(1, &self.render_context.texture_bind_group, &[]);
-            _render_pass.set_vertex_buffer(0, self.render_context.instance_buffer.slice(..));
+            _render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
             _render_pass.draw(0..6, 0..mesh::FACES.len() as u32);
         }
 

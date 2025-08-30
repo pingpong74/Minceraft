@@ -3,7 +3,7 @@ use crate::world::blocks::BlockType;
 
 use super::blocks::Block;
 use super::blocks::FaceType;
-use cgmath::Vector3;
+use cgmath::Point3;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -61,18 +61,16 @@ pub const FACES: &[FaceData] = &[
     FaceData::pack(0, 0, 0, 5, FaceType::Dirt),
 ];
 
-const CHUNK_SIZE: usize = 16;
-
-const CHUNK_SIZE_SQUARED: usize = 16 * 16;
+pub const CHUNK_SIZE: usize = 16;
 
 pub struct Chunk {
-    pos: cgmath::Vector3<i32>,
-    blocks: [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
-    face: Vec<FaceData>,
+    pub pos: cgmath::Point3<i32>,
+    pub blocks: [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
+    pub face: Vec<FaceData>,
 }
 
 impl Chunk {
-    pub fn new(pos: Vector3<i32>) -> Self {
+    pub fn new(pos: Point3<i32>) -> Self {
         return Chunk {
             pos: pos,
             blocks: [[[BlockType::Air; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
@@ -107,7 +105,11 @@ impl Chunk {
                 for z in 0..CHUNK_SIZE {
                     let curr_block = chunk.blocks[x][y][z].clone() as usize;
 
-                    if y > 0 && (chunk.blocks[x][y + 1][z] == BlockType::Air) {
+                    if curr_block == 0 {
+                        break;
+                    }
+
+                    if y < CHUNK_SIZE - 1 && (chunk.blocks[x][y + 1][z] == BlockType::Air) {
                         chunk.face.push(FaceData::pack(
                             x,
                             y + 1,
@@ -117,7 +119,7 @@ impl Chunk {
                         ));
                     }
 
-                    if y < CHUNK_SIZE - 1 && (chunk.blocks[x][y - 1][z] == BlockType::Air) {
+                    if y > 0 && (chunk.blocks[x][y - 1][z] == BlockType::Air) {
                         chunk.face.push(FaceData::pack(
                             x,
                             y,
