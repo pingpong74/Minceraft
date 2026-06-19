@@ -1,10 +1,8 @@
 mod indirect_draw_buffer;
-mod staging_buffer;
 mod vertex_buffer;
 
 pub use indirect_draw_buffer::{IndirectDrawBuffer, IndirectDrawCommand};
 use sgpu::*;
-pub use staging_buffer::StagingBuffer;
 pub use vertex_buffer::FaceBuffer;
 use winit::dpi::PhysicalSize;
 
@@ -101,10 +99,7 @@ impl Renderer {
         self.size = size;
     }
 
-    pub fn render(&mut self, cmd: &mut CommandBuffer, swapchain_image: Image, face_buffer: &mut FaceBuffer, indirect_buffer: &mut IndirectDrawBuffer, view_proj: &glam::Mat4, chunk_count: u32) {
-        face_buffer.flush_uploads(cmd);
-        indirect_buffer.flush_uploads(cmd);
-
+    pub fn render(&self, cmd: &mut CommandBuffer, swapchain_image: Image, face_buffer: &FaceBuffer, indirect_buffer: &IndirectDrawBuffer, view_proj: &glam::Mat4, chunk_count: u32) {
         cmd.image_barrier(&ImageBarrier {
             view: swapchain_image.default_view(),
             previous_accesses: &[AccessType::Present],

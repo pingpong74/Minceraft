@@ -1,4 +1,5 @@
-import sgpu;
+import "../sgpu.slang";
+import "../common.slang";
 
 struct PushConstants {
   float4x4 view_proj;
@@ -8,33 +9,6 @@ struct PushConstants {
 
 [[vk_push_constant]]
 PushConstants pc;
-
-struct IndirectDrawCommand {
-  uint vertex_count;
-  uint instance_count;
-  uint first_vertex;
-  uint first_instance;
-  int3 world_pos;
-  uint _pad;
-};
-
-struct UnpackedFace {
-  float3 pos;
-  uint normal_idx;
-  uint block_id;
-
-  static UnpackedFace unpack(uint data) {
-    float3 pos;
-    pos.x = float(data & 0x1F);
-    pos.y = float((data >> 5) & 0x1F);
-    pos.z = float((data >> 10) & 0x1F);
-
-    uint normal_idx = (data >> 15) & 0x7;
-    uint block_id = (data >> 18) & 0xFFFF;
-
-    return { pos, normal_idx, block_id };
-  }
-};
 
 static const float3 corner_offsets[6][4] = {
   { float3(1, 0, 0), float3(1, 1, 0), float3(1, 1, 1), float3(1, 0, 1) },

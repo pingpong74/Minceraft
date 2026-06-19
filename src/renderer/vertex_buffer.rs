@@ -1,7 +1,7 @@
 use crate::chunk::Face;
 use sgpu::*;
 
-use super::{BufferLocation, StagingBuffer};
+use super::BufferLocation;
 
 #[derive(Clone, Copy)]
 struct FreeBlock {
@@ -11,47 +11,24 @@ struct FreeBlock {
 
 pub struct FaceBuffer {
     buffer: Buffer,
-    staging: StagingBuffer,
-    staging_offset: usize,
-    capacity: usize,
     free_blocks: Vec<FreeBlock>,
-    pending_uploads: Vec<(u64, u64, u64)>,
 }
 
 impl FaceBuffer {
-    pub fn new(capacity: usize) -> FaceBuffer {
-        return FaceBuffer {
+    pub fn new(max_faces: usize) -> FaceBuffer {
+        let capacity = (max_faces * std::mem::size_of::<Face>()) as u64;
+        FaceBuffer {
             buffer: create_buffer(&BufferDescription {
-                size: capacity as u64,
+                size: capacity,
                 usage: BufferUsage::STORAGE | BufferUsage::TRANSFER_DST,
                 memory_type: MemoryType::DeviceLocal,
             }),
-            staging: StagingBuffer::new(1 << 20),
-            staging_offset: 0,
-            capacity: capacity,
-            free_blocks: vec![FreeBlock { offset: 0, size: capacity as u64 }],
-            pending_uploads: Vec::new(),
-        };
-    }
-
-    pub fn allocate(&mut self, faces: &[Face]) -> BufferLocation {
-        let device_size = (faces.len() * std::mem::size_of::<Face>()) as u64;
-        let staging_size = device_size as usize;
-
-        let device_offset = self.alloc_device(device_size);
-
-        if self.staging_offset + staging_size > self.staging.capacity() {
-            self.grow_staging(staging_size);
+            free_blocks: vec![FreeBlock { offset: 0, size: capacity }],
         }
-
-        self.staging.write_at(faces, self.staging_offset as u64);
-        self.pending_uploads.push((self.staging_offset as u64, device_offset, device_size));
-        self.staging_offset += staging_size;
-
-        return BufferLocation { offset: device_offset, size: device_size };
     }
 
-    fn alloc_device(&mut self, size: u64) -> u64 {
+    pub fn allocate(&mut self, num_faces: usize) -> BufferLocation {
+        let size = (num_faces * std::mem::size_of::<Face>()) as u64;
         for i in 0..self.free_blocks.len() {
             if self.free_blocks[i].size >= size {
                 let block = self.free_blocks[i];
@@ -61,12 +38,10 @@ impl FaceBuffer {
                     self.free_blocks[i].offset += size;
                     self.free_blocks[i].size -= size;
                 }
-                return block.offset;
+                return BufferLocation { offset: block.offset, size };
             }
         }
-
-        self.grow(size);
-        self.alloc_device(size)
+        panic!("FaceBuffer: out of pre-allocated memory");
     }
 
     pub fn free(&mut self, loc: BufferLocation) {
@@ -74,52 +49,8 @@ impl FaceBuffer {
         self.coalesce();
     }
 
-    pub fn flush_uploads(&mut self, cmd: &mut CommandBuffer) {
-        for upload in self.pending_uploads.drain(0..) {
-            cmd.copy_buffer(self.staging.raw(), self.buffer, upload.0, upload.1, upload.2);
-        }
-        self.staging_offset = 0;
-    }
-
     pub fn raw(&self) -> Buffer {
-        return self.buffer;
-    }
-
-    fn grow(&mut self, min_size: u64) {
-        let needed = self.capacity + min_size as usize;
-        let new_capacity = (self.capacity * 2).max(needed);
-
-        let new_buffer = create_buffer(&BufferDescription {
-            size: new_capacity as u64,
-            usage: BufferUsage::STORAGE | BufferUsage::TRANSFER_DST,
-            memory_type: MemoryType::DeviceLocal,
-        });
-
-        destroy_buffer(self.buffer);
-        self.buffer = new_buffer;
-
-        self.free_blocks.push(FreeBlock {
-            offset: self.capacity as u64,
-            size: (new_capacity - self.capacity) as u64,
-        });
-        self.capacity = new_capacity;
-
-        self.coalesce();
-    }
-
-    fn grow_staging(&mut self, min_size: usize) {
-        let needed = self.staging.capacity() + min_size;
-        let new_capacity = (self.staging.capacity() * 2).max(needed);
-
-        let new_staging = StagingBuffer::new(new_capacity);
-
-        let old_raw = self.staging.raw();
-        let src = old_raw.as_slice::<u8>();
-        let new_raw = new_staging.raw();
-        let dst = new_raw.as_mut_slice::<u8>();
-        dst[..self.staging_offset].copy_from_slice(&src[..self.staging_offset]);
-
-        self.staging = new_staging;
+        self.buffer
     }
 
     fn coalesce(&mut self) {
@@ -135,5 +66,11 @@ impl FaceBuffer {
                 i += 1;
             }
         }
+    }
+}
+
+impl Drop for FaceBuffer {
+    fn drop(&mut self) {
+        destroy_buffer(self.buffer);
     }
 }

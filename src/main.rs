@@ -2,6 +2,7 @@ mod application;
 mod camera;
 mod chunk;
 mod renderer;
+mod world;
 
 use application::*;
 use winit::event_loop::EventLoop;
