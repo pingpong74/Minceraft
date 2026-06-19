@@ -1,13 +1,15 @@
+use std::collections::HashMap;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-use crate::chunk::{CHUNK_SIDE, ChunkMesh, Generator, Neighbours, mesh};
+use crate::chunk::{Block, ChunkMesh, Generator, Neighbours, mesh, CHUNK_VOLUME};
+
+type BlockData = [Block; CHUNK_VOLUME];
+type BlockCache = Arc<Mutex<HashMap<(i32, i32, i32), Arc<BlockData>>>>;
 
 pub struct WorkItem {
     pub coords: (i32, i32, i32),
-    pub world_x: i32,
-    pub world_y: i32,
-    pub world_z: i32,
 }
 
 pub struct WorkResult {
@@ -27,36 +29,50 @@ impl WorkerPool {
         let mut senders: Vec<mpsc::Sender<WorkItem>> = Vec::with_capacity(num_workers);
         let mut handles = Vec::with_capacity(num_workers);
         let (result_sender, receiver) = mpsc::channel();
-        let side = CHUNK_SIDE as i32;
+        let side = 32;
+        let cache: BlockCache = Arc::new(Mutex::new(HashMap::new()));
 
         for _ in 0..num_workers {
             let (tx, rx) = mpsc::channel();
             senders.push(tx);
 
             let result_sender = result_sender.clone();
+            let cache_clone = cache.clone();
             let handle = thread::spawn(move || {
                 let generator = Generator::new(seed);
                 while let Ok(item) = rx.recv() {
-                    let blocks = generator.generate_blocks(item.world_x, item.world_y, item.world_z);
+                    let get = |cx: i32, cy: i32, cz: i32| -> Arc<BlockData> {
+                        {
+                            let map = cache_clone.lock().unwrap();
+                            if let Some(b) = map.get(&(cx, cy, cz)) {
+                                return b.clone();
+                            }
+                        }
+                        let blocks = Arc::new(generator.generate_blocks(cx * side, cy * side, cz * side));
+                        let mut map = cache_clone.lock().unwrap();
+                        map.entry((cx, cy, cz)).or_insert(blocks).clone()
+                    };
 
-                    let xp = generator.generate_blocks(item.world_x + side, item.world_y, item.world_z);
-                    let xn = generator.generate_blocks(item.world_x - side, item.world_y, item.world_z);
-                    let yp = generator.generate_blocks(item.world_x, item.world_y + side, item.world_z);
-                    let yn = generator.generate_blocks(item.world_x, item.world_y - side, item.world_z);
-                    let zp = generator.generate_blocks(item.world_x, item.world_y, item.world_z + side);
-                    let zn = generator.generate_blocks(item.world_x, item.world_y, item.world_z - side);
+                    let cx = item.coords.0;
+                    let cy = item.coords.1;
+                    let cz = item.coords.2;
 
-                    let chunk_mesh = mesh(
-                        &blocks,
-                        Neighbours {
-                            xp: Some(&xp),
-                            xn: Some(&xn),
-                            yp: Some(&yp),
-                            yn: Some(&yn),
-                            zp: Some(&zp),
-                            zn: Some(&zn),
-                        },
-                    );
+                    let blocks = get(cx, cy, cz);
+                    let xp = get(cx + 1, cy, cz);
+                    let xn = get(cx - 1, cy, cz);
+                    let yp = get(cx, cy + 1, cz);
+                    let yn = get(cx, cy - 1, cz);
+                    let zp = get(cx, cy, cz + 1);
+                    let zn = get(cx, cy, cz - 1);
+
+                    let chunk_mesh = mesh(&blocks, Neighbours {
+                        xp: Some(&xp),
+                        xn: Some(&xn),
+                        yp: Some(&yp),
+                        yn: Some(&yn),
+                        zp: Some(&zp),
+                        zn: Some(&zn),
+                    });
                     if result_sender.send(WorkResult { coords: item.coords, mesh: chunk_mesh }).is_err() {
                         break;
                     }
@@ -65,7 +81,12 @@ impl WorkerPool {
             handles.push(handle);
         }
 
-        WorkerPool { senders, handles, receiver, next_worker: 0 }
+        WorkerPool {
+            senders,
+            handles,
+            receiver,
+            next_worker: 0,
+        }
     }
 
     pub fn submit(&mut self, item: WorkItem) {

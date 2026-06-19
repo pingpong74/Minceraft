@@ -13,19 +13,15 @@ use crate::world::{ChunkUnloadInfo, WorkItem, WorkerPool, World};
 
 use super::input::InputManager;
 
-// in future, move from const maximum to dyn stuff
 const MAX_FACES: usize = 8_000_000;
 const MAX_COMMANDS: usize = 20_000;
-const GENERATION_RADIUS: u32 = 16;
-const UNLOAD_RADIUS: u32 = 20;
-
-// importnt
-const NUM_WORKERS: usize = 16;
+const GENERATION_RADIUS: u32 = 8;
+const UNLOAD_RADIUS: u32 = 10;
+const NUM_WORKERS: usize = 8;
 const SEED: u32 = 42;
 
-#[allow(unused)]
 struct PendingUnload {
-    coords: (i32, i32, i32),
+    _coords: (i32, i32, i32),
     counter: sgpu::Counter,
     face_loc: crate::renderer::BufferLocation,
     cmd_slot: usize,
@@ -66,14 +62,9 @@ impl Application {
         let mut world = World::new(GENERATION_RADIUS, UNLOAD_RADIUS);
         let mut worker_pool = WorkerPool::new(NUM_WORKERS, SEED);
 
-        let (to_load, _) = world.update(0, 0, 0);
+        let (to_load, _) = world.update(0, 1, 0);
         for coords in to_load {
-            worker_pool.submit(WorkItem {
-                coords,
-                world_x: coords.0 * 32,
-                world_y: coords.1 * 32,
-                world_z: coords.2 * 32,
-            });
+            worker_pool.submit(WorkItem { coords });
         }
 
         Application {
@@ -163,7 +154,7 @@ impl Application {
             transfer_cmd.update_buffer(&self.indirect_buffer.raw(), self.indirect_buffer.slot_offset(info.cmd_slot), &[zero_cmd]);
             let counter = submit(&[transfer_cmd]);
             self.pending_unloads.push(PendingUnload {
-                coords: info.coords,
+                _coords: info.coords,
                 counter,
                 face_loc: info.face_loc,
                 cmd_slot: info.cmd_slot,
@@ -217,12 +208,7 @@ impl Application {
         let (to_load, to_unload) = self.world.update(cx, cy, cz);
 
         for coords in to_load {
-            self.worker_pool.submit(WorkItem {
-                coords,
-                world_x: coords.0 * 32,
-                world_y: coords.1 * 32,
-                world_z: coords.2 * 32,
-            });
+            self.worker_pool.submit(WorkItem { coords });
         }
 
         self.submit_unload_zeroes(to_unload);
