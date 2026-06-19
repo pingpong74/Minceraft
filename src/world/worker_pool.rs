@@ -3,10 +3,7 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-use crate::chunk::{Block, ChunkMesh, Generator, Neighbours, mesh, CHUNK_VOLUME};
-
-type BlockData = [Block; CHUNK_VOLUME];
-type BlockCache = Arc<Mutex<HashMap<(i32, i32, i32), Arc<BlockData>>>>;
+use crate::chunk::{Block, CHUNK_VOLUME, ChunkMesh, Generator, Neighbours, mesh};
 
 pub struct WorkItem {
     pub coords: (i32, i32, i32),
@@ -30,7 +27,7 @@ impl WorkerPool {
         let mut handles = Vec::with_capacity(num_workers);
         let (result_sender, receiver) = mpsc::channel();
         let side = 32;
-        let cache: BlockCache = Arc::new(Mutex::new(HashMap::new()));
+        let cache = Arc::new(Mutex::new(HashMap::<(i32, i32, i32), Arc<[Block; CHUNK_VOLUME]>>::new()));
 
         for _ in 0..num_workers {
             let (tx, rx) = mpsc::channel();
@@ -41,7 +38,8 @@ impl WorkerPool {
             let handle = thread::spawn(move || {
                 let generator = Generator::new(seed);
                 while let Ok(item) = rx.recv() {
-                    let get = |cx: i32, cy: i32, cz: i32| -> Arc<BlockData> {
+                    ///////// BADDD
+                    let get = |cx: i32, cy: i32, cz: i32| -> Arc<[Block; CHUNK_VOLUME]> {
                         {
                             let map = cache_clone.lock().unwrap();
                             if let Some(b) = map.get(&(cx, cy, cz)) {
@@ -65,14 +63,17 @@ impl WorkerPool {
                     let zp = get(cx, cy, cz + 1);
                     let zn = get(cx, cy, cz - 1);
 
-                    let chunk_mesh = mesh(&blocks, Neighbours {
-                        xp: Some(&xp),
-                        xn: Some(&xn),
-                        yp: Some(&yp),
-                        yn: Some(&yn),
-                        zp: Some(&zp),
-                        zn: Some(&zn),
-                    });
+                    let chunk_mesh = mesh(
+                        &blocks,
+                        Neighbours {
+                            xp: Some(&xp),
+                            xn: Some(&xn),
+                            yp: Some(&yp),
+                            yn: Some(&yn),
+                            zp: Some(&zp),
+                            zn: Some(&zn),
+                        },
+                    );
                     if result_sender.send(WorkResult { coords: item.coords, mesh: chunk_mesh }).is_err() {
                         break;
                     }
@@ -81,12 +82,7 @@ impl WorkerPool {
             handles.push(handle);
         }
 
-        WorkerPool {
-            senders,
-            handles,
-            receiver,
-            next_worker: 0,
-        }
+        return WorkerPool { senders, handles, receiver, next_worker: 0 };
     }
 
     pub fn submit(&mut self, item: WorkItem) {
@@ -97,7 +93,7 @@ impl WorkerPool {
     }
 
     pub fn try_recv(&self) -> Option<WorkResult> {
-        self.receiver.try_recv().ok()
+        return self.receiver.try_recv().ok();
     }
 }
 

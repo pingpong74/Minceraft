@@ -1,5 +1,5 @@
 use glam::vec3;
-use sgpu::{AccessType, Format, GlobalBarrier, PipelineStage, QueueType, SgpuInititizationInfo, Swapchain, record, submit};
+use sgpu::*;
 use winit::{
     dpi::PhysicalSize,
     event::{DeviceEvent, WindowEvent},
@@ -8,17 +8,17 @@ use winit::{
 
 use crate::camera::Camera;
 use crate::chunk::Face;
-use crate::renderer::{FaceBuffer, IndirectDrawBuffer, IndirectDrawCommand, Renderer};
-use crate::world::{ChunkUnloadInfo, WorkItem, WorkerPool, World};
+use crate::renderer::*;
+use crate::world::*;
 
 use super::input::InputManager;
 
-const MAX_FACES: usize = 8_000_000;
-const MAX_COMMANDS: usize = 20_000;
-const GENERATION_RADIUS: u32 = 8;
-const UNLOAD_RADIUS: u32 = 10;
+const MAX_FACES: usize = 8000000;
+const MAX_COMMANDS: usize = 20000;
+const GENERATION_RADIUS: u32 = 32;
+const UNLOAD_RADIUS: u32 = 34;
 const NUM_WORKERS: usize = 8;
-const SEED: u32 = 42;
+const SEED: u32 = 69;
 
 struct PendingUnload {
     _coords: (i32, i32, i32),
@@ -96,6 +96,9 @@ impl Application {
         self.size = size;
     }
 
+    // the data in indirect buffer needs to be zeroed or else there will be artifacts..
+    // hmm
+    // i need to leave it for now cuz i havent expericed and issue and idk a good way to impl this
     fn drain_pending(&mut self) {
         let mut i = 0;
         while i < self.pending_unloads.len() {

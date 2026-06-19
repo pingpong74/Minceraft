@@ -25,22 +25,20 @@ pub struct ChunkUnloadInfo {
 
 pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkEntry>,
-    generation_radius: u32,
-    unload_radius: u32,
+    generation_radius: i32,
+    unload_radius: i32,
 }
 
 impl World {
     pub fn new(generation_radius: u32, unload_radius: u32) -> Self {
-        World {
+        return World {
             chunks: HashMap::new(),
-            generation_radius,
-            unload_radius,
-        }
+            generation_radius: generation_radius as i32,
+            unload_radius: unload_radius as i32,
+        };
     }
 
     pub fn update(&mut self, cx: i32, cy: i32, cz: i32) -> (Vec<(i32, i32, i32)>, Vec<ChunkUnloadInfo>) {
-        let r_gen = self.generation_radius as i32;
-        let r_unload = self.unload_radius as i32;
         let mut to_load = Vec::new();
         let mut to_unload = Vec::new();
 
@@ -52,7 +50,7 @@ impl World {
                     let dx = key.0 - cx;
                     let dy = key.1 - cy;
                     let dz = key.2 - cz;
-                    dx * dx + dy * dy + dz * dz > r_unload * r_unload
+                    dx * dx + dy * dy + dz * dz > self.unload_radius * self.unload_radius
                 }
             })
             .map(|(&key, _)| key)
@@ -76,7 +74,7 @@ impl World {
                     let dx = key.0 - cx;
                     let dy = key.1 - cy;
                     let dz = key.2 - cz;
-                    dx * dx + dy * dy + dz * dz > r_unload * r_unload
+                    dx * dx + dy * dy + dz * dz > self.unload_radius * self.unload_radius
                 }
             })
             .map(|(&key, _)| key)
@@ -86,10 +84,10 @@ impl World {
             self.chunks.remove(&key);
         }
 
-        for dz in -r_gen..=r_gen {
-            for dx in -r_gen..=r_gen {
-                for dy in -r_gen..=r_gen {
-                    if dx * dx + dz * dz + dy * dy > r_gen * r_gen {
+        for dz in -self.generation_radius..=self.generation_radius {
+            for dx in -self.generation_radius..=self.generation_radius {
+                for dy in -self.generation_radius..=self.generation_radius {
+                    if dx * dx + dz * dz + dy * dy > self.generation_radius * self.generation_radius {
                         continue;
                     }
                     let coords = (cx + dx, cy + dy, cz + dz);
@@ -109,7 +107,7 @@ impl World {
             }
         }
 
-        (to_load, to_unload)
+        return (to_load, to_unload);
     }
 
     pub fn mark_loaded(&mut self, coords: (i32, i32, i32), face_loc: BufferLocation, cmd_slot: usize) {
@@ -124,25 +122,5 @@ impl World {
         if let Some(entry) = self.chunks.get_mut(&coords) {
             entry.state = ChunkState::Loaded;
         }
-    }
-
-    pub fn is_loaded(&self, coords: &(i32, i32, i32)) -> bool {
-        self.chunks.get(coords).map_or(false, |e| e.state == ChunkState::Loaded)
-    }
-
-    pub fn is_pending(&self, coords: &(i32, i32, i32)) -> bool {
-        self.chunks.get(coords).map_or(false, |e| e.state == ChunkState::Pending)
-    }
-
-    pub fn state(&self, coords: &(i32, i32, i32)) -> Option<ChunkState> {
-        self.chunks.get(coords).map(|e| e.state)
-    }
-
-    pub fn loaded_chunk_count(&self) -> u32 {
-        self.chunks.values().filter(|e| e.state == ChunkState::Loaded).count() as u32
-    }
-
-    pub fn active_slot_count(&self) -> u32 {
-        self.chunks.values().filter(|e| e.state == ChunkState::Loaded && e.cmd_slot.is_some()).count() as u32
     }
 }
