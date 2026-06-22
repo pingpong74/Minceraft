@@ -1,6 +1,6 @@
 #[derive(Clone, Copy, PartialEq)]
 pub struct Block {
-    id: u16,
+    id: u8,
 }
 
 impl Block {
@@ -10,7 +10,7 @@ impl Block {
     }
 
     #[inline]
-    pub fn get_id(&self) -> u16 {
+    pub fn get_id(&self) -> u8 {
         return self.id;
     }
 

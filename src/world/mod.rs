@@ -2,8 +2,10 @@ mod worker_pool;
 
 pub use worker_pool::*;
 
+use crate::chunk::{Block, CHUNK_VOLUME};
 use crate::renderer::BufferLocation;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ChunkState {
@@ -27,6 +29,7 @@ pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkEntry>,
     generation_radius: i32,
     unload_radius: i32,
+    chunk_cache: Arc<Mutex<HashMap<(i32, i32, i32), Arc<[Block; CHUNK_VOLUME]>>>>,
 }
 
 impl World {
@@ -35,7 +38,12 @@ impl World {
             chunks: HashMap::new(),
             generation_radius: generation_radius as i32,
             unload_radius: unload_radius as i32,
+            chunk_cache: Arc::new(Mutex::new(HashMap::new())),
         };
+    }
+
+    pub fn chunk_cache(&self) -> Arc<Mutex<HashMap<(i32, i32, i32), Arc<[Block; CHUNK_VOLUME]>>>> {
+        self.chunk_cache.clone()
     }
 
     pub fn update(&mut self, cx: i32, cy: i32, cz: i32) -> (Vec<(i32, i32, i32)>, Vec<ChunkUnloadInfo>) {
@@ -58,6 +66,7 @@ impl World {
 
         for key in unload_keys {
             if let Some(entry) = self.chunks.remove(&key) {
+                self.chunk_cache.lock().unwrap().remove(&key);
                 to_unload.push(ChunkUnloadInfo {
                     coords: key,
                     face_loc: entry.face_loc.unwrap(),
@@ -82,6 +91,7 @@ impl World {
 
         for key in empty_unload {
             self.chunks.remove(&key);
+            self.chunk_cache.lock().unwrap().remove(&key);
         }
 
         for dz in -self.generation_radius..=self.generation_radius {

@@ -5,6 +5,8 @@ use std::thread::{self, JoinHandle};
 
 use crate::chunk::{Block, CHUNK_VOLUME, ChunkMesh, Generator, Neighbours, mesh};
 
+type ChunkCache = Arc<Mutex<HashMap<(i32, i32, i32), Arc<[Block; CHUNK_VOLUME]>>>>;
+
 pub struct WorkItem {
     pub coords: (i32, i32, i32),
 }
@@ -22,12 +24,11 @@ pub struct WorkerPool {
 }
 
 impl WorkerPool {
-    pub fn new(num_workers: usize, seed: u32) -> Self {
+    pub fn new(num_workers: usize, seed: u32, cache: ChunkCache) -> Self {
         let mut senders: Vec<mpsc::Sender<WorkItem>> = Vec::with_capacity(num_workers);
         let mut handles = Vec::with_capacity(num_workers);
         let (result_sender, receiver) = mpsc::channel();
         let side = 32;
-        let cache = Arc::new(Mutex::new(HashMap::<(i32, i32, i32), Arc<[Block; CHUNK_VOLUME]>>::new()));
 
         for _ in 0..num_workers {
             let (tx, rx) = mpsc::channel();

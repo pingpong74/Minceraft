@@ -60,7 +60,8 @@ impl Application {
         let renderer = Renderer::new(size);
         let camera = Camera::new(vec3(0.0, 32.0, 0.0), size.width as f32 / size.height as f32);
         let mut world = World::new(GENERATION_RADIUS, UNLOAD_RADIUS);
-        let mut worker_pool = WorkerPool::new(NUM_WORKERS, SEED);
+        let cache = world.chunk_cache();
+        let mut worker_pool = WorkerPool::new(NUM_WORKERS, SEED, cache);
 
         let (to_load, _) = world.update(0, 1, 0);
         for coords in to_load {
