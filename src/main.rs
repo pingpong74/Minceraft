@@ -1,15 +1,10 @@
-mod application;
+mod app;
 mod camera;
-mod chunk;
 mod renderer;
 mod world;
 
-use application::*;
-use winit::event_loop::EventLoop;
+use app::*;
 
 fn main() {
-    let mut runner = Runner::new();
-    let event_loop = EventLoop::new().expect("Failed to create event loop");
-
-    event_loop.run_app(&mut runner).expect("Application running failed");
+    simple_window::run::<Application>(0.2);
 }

@@ -26,8 +26,6 @@ This project serves as a playground for experimenting with:
 
 ## Building
 
-Note: slangc has to be installed.
-
 ```bash
 cargo run --release
 ```

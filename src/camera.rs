@@ -1,6 +1,5 @@
-use crate::application::InputManager;
 use glam::{Mat4, Vec3};
-use winit::{dpi::PhysicalSize, keyboard::KeyCode};
+use simple_window::{InputManager, KeyCode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Camera {
@@ -32,8 +31,8 @@ impl Camera {
         };
     }
 
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.aspect = size.width as f32 / size.height as f32;
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.aspect = width as f32 / height as f32;
     }
 
     pub fn forward(&self) -> Vec3 {
