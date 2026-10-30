@@ -22,7 +22,7 @@ impl Pipelines {
                     ..Default::default()
                 },
                 topology: PrimitiveTopology::TriangleList,
-                cull_mode: CullMode::None,
+                cull_mode: CullMode::Back,
                 front_face: FrontFace::CounterClockwise,
                 polygon_mode: PolygonMode::Fill,
                 depth_stencil: DepthStencilState::default(),
