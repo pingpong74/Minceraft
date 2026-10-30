@@ -1,0 +1,11 @@
+[package]
+name = "minceraft"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+simple-window.workspace = true
+glam.workspace = true
+renderer.workspace = true
+world.workspace = true
+shaders.workspace = true

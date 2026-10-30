@@ -17,18 +17,18 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(position: Vec3, aspect: f32) -> Camera {
-        return Camera {
+    pub fn new(position: Vec3, aspect: f32, yaw: f64, pitch: f64) -> Camera {
+        Camera {
             position,
-            yaw: -0.769,
-            pitch: -0.3,
+            yaw,
+            pitch,
             move_speed: 25.0,
             mouse_sensitivity: 0.002,
             aspect,
             fovy: 70_f32.to_radians(),
             znear: 0.1,
             zfar: 1000000.0,
-        };
+        }
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -36,33 +36,31 @@ impl Camera {
     }
 
     pub fn forward(&self) -> Vec3 {
-        return Vec3::new((self.yaw.cos() * self.pitch.cos()) as f32, (self.pitch.sin()) as f32, (self.yaw.sin() * self.pitch.cos()) as f32).normalize();
+        Vec3::new((self.yaw.cos() * self.pitch.cos()) as f32, (self.pitch.sin()) as f32, (self.yaw.sin() * self.pitch.cos()) as f32).normalize()
     }
 
     pub fn right(&self) -> Vec3 {
-        return self.forward().cross(Vec3::Y).normalize();
+        self.forward().cross(Vec3::Y).normalize()
     }
 
     pub fn up(&self) -> Vec3 {
-        return self.right().cross(self.forward()).normalize();
+        self.right().cross(self.forward()).normalize()
     }
 
-    pub fn focal_lenght(&self) -> f32 {
-        return 1.0 / (self.fovy * 0.5).tan();
+    pub fn position(&self) -> Vec3 {
+        self.position
     }
 
     pub fn projection(&self) -> Mat4 {
-        let mut m = Mat4::perspective_rh(self.fovy, self.aspect, self.znear, self.zfar);
-        m.y_axis.y *= -1.0;
-        return m;
+        glam::camera::rh::proj::vulkan::perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
 
     pub fn view(&self) -> Mat4 {
-        return Mat4::look_at_rh(self.position, self.position + self.forward(), self.up());
+        glam::camera::rh::view::look_at_mat4(self.position, self.position + self.forward(), self.up())
     }
 
     pub fn view_proj(&self) -> Mat4 {
-        return self.projection() * self.view();
+        self.projection() * self.view()
     }
 
     pub fn process_input(&mut self, input: &InputManager, dt: f64) {
@@ -104,4 +102,21 @@ impl Camera {
 
         self.position += vel * self.move_speed * (dt as f32);
     }
+}
+
+pub fn frustum_from_view_proj(view_proj: Mat4) -> [[f32; 4]; 6] {
+    let row0 = view_proj.row(0);
+    let row1 = view_proj.row(1);
+    let row2 = view_proj.row(2);
+    let row3 = view_proj.row(3);
+
+    let raw_planes = [row3 + row0, row3 - row0, row3 + row1, row3 - row1, row2, row3 - row2];
+    let mut planes = [[0.0; 4]; 6];
+
+    for (plane, raw) in planes.iter_mut().zip(raw_planes) {
+        let length = raw.truncate().length();
+        *plane = if length > 0.0 { (raw / length).to_array() } else { raw.to_array() };
+    }
+
+    planes
 }

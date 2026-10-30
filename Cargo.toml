@@ -1,11 +1,15 @@
-[package]
-name = "minceraft"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "2"
+members = ["crates/*"]
 
-[dependencies]
-simple-window = { path = "../simple-window" }
+[workspace.dependencies]
+shaders = { path = "crates/shaders" }
+renderer = { path = "crates/renderer" }
+world = { path = "crates/world" }
+simple-window = { git = "https://github.com/pingpong74/simple-windowing" }
+sgpu = { git = "https://github.com/pingpong74/sgpu.git", package = "sgpu" }
+sgpu-taskgraph = { git = "https://github.com/pingpong74/sgpu.git", package = "sgpu-taskgraph" }
+sgpu-shaders = { git = "https://github.com/pingpong74/sgpu.git", package = "sgpu-shaders" }
 glam = "*"
-sgpu = "0.1"
-sgpu-taskgraph = "0.1"
 noise = "*"
+offset-allocator = "*"

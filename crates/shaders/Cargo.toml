@@ -1,0 +1,20 @@
+[package]
+name = "shaders"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+compile-driver = ["dep:spirv-builder"]
+
+[dependencies]
+sgpu-shaders.workspace = true
+spirv-builder = { version = "0.10.0", optional = true }
+
+[[bin]]
+name = "compile"
+path = "src/bin/compile.rs"
+required-features = ["compile-driver"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_arch, values("spirv"))'] }

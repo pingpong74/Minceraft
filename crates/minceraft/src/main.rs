@@ -1,7 +1,6 @@
 mod app;
 mod camera;
-mod renderer;
-mod world;
+mod world_setup;
 
 use app::*;
 

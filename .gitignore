@@ -1,1 +1,3 @@
 /target
+/crates/shaders/target
+/crates/shaders/out

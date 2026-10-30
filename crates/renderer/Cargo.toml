@@ -1,0 +1,12 @@
+[package]
+name = "renderer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sgpu.workspace = true
+sgpu-shaders.workspace = true
+sgpu-taskgraph.workspace = true
+simple-window.workspace = true
+offset-allocator.workspace = true
+shaders.workspace = true
