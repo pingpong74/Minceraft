@@ -1,5 +1,5 @@
 use crate::block::BlockId;
-use shaders::{ChunkMeta, FaceRange};
+use glam::Vec3;
 use std::sync::Arc;
 
 pub const CHUNK_SIDE: usize = 32;
@@ -7,12 +7,17 @@ pub const CHUNK_VOLUME: usize = CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ChunkKey {
+    pub lod: u8,
     pub location: glam::IVec3,
 }
 
 impl ChunkKey {
-    pub fn new(x: i32, y: i32, z: i32) -> Self {
-        Self { location: glam::IVec3::new(x, y, z) }
+    pub fn new(x: i32, y: i32, z: i32, lod: u8) -> Self {
+        Self { location: glam::IVec3::new(x, y, z), lod }
+    }
+
+    pub fn side(&self) -> usize {
+        CHUNK_SIDE << self.lod
     }
 }
 
@@ -112,16 +117,12 @@ impl Chunk {
         self.voxels.block_at(x, y, z)
     }
 
-    pub fn meta(&self, face_ranges: [FaceRange; 6]) -> ChunkMeta {
-        let side = CHUNK_SIDE as f32;
-        let origin = [self.key.location.x as f32 * side, self.key.location.y as f32 * side, self.key.location.z as f32 * side, 0.0];
+    pub fn origin(&self) -> Vec3 {
+        Vec3::new(self.key.location.x as f32 * CHUNK_SIDE as f32, self.key.location.y as f32 * CHUNK_SIDE as f32, self.key.location.z as f32 * CHUNK_SIDE as f32)
+    }
 
-        ChunkMeta {
-            origin,
-            aabb_min: origin,
-            aabb_max: [origin[0] + side, origin[1] + side, origin[2] + side, 0.0],
-            face_ranges,
-        }
+    pub fn aabb_max(&self) -> Vec3 {
+        self.origin() + Vec3::new(CHUNK_SIDE as f32, CHUNK_SIDE as f32, CHUNK_SIDE as f32)
     }
 
     pub fn get_or_air(&self, x: i32, y: i32, z: i32) -> BlockId {

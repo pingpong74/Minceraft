@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 glam.workspace = true
 shaders.workspace = true
+rand.workspace = true

@@ -11,6 +11,7 @@ pub struct FaceRange {
     pub quad_count: u32,
 }
 
+// aabb min and origin are repeated, later on remove them
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ChunkMeta {

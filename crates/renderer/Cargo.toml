@@ -9,4 +9,5 @@ sgpu-shaders.workspace = true
 sgpu-taskgraph.workspace = true
 simple-window.workspace = true
 offset-allocator.workspace = true
+image.workspace = true
 shaders.workspace = true

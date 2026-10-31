@@ -6,7 +6,6 @@ use simple_window::Window;
 pub struct Application {
     camera: Camera,
     renderer: Renderer,
-    /// Kept alive so the static world stays visible; never freed.
     _chunks: Vec<ChunkAllocation>,
 }
 
@@ -14,7 +13,7 @@ impl simple_window::Application for Application {
     fn new(window: &Window) -> Self {
         let size = window.inner_size();
         let camera = Camera::new(glam::vec3(0.0, 180.0, 200.0), size.width as f32 / size.height as f32, -std::f64::consts::FRAC_PI_2, -0.35);
-        let mut renderer = Renderer::new(window);
+        let mut renderer = Renderer::new(window, false, world::block::TEXTURE_NAMES);
         let _chunks = build_static_world(&mut renderer);
 
         Application { camera, renderer, _chunks }

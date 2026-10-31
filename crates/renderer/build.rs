@@ -6,7 +6,7 @@ fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set by cargo"));
     let shaders_dir = manifest_dir.join("../shaders");
 
-    for changed in [shaders_dir.join("rust-toolchain.toml"), shaders_dir.join("Cargo.toml"), shaders_dir.join("src"), manifest_dir.join("../sgpu/crates/sgpu-shaders/src")] {
+    for changed in [shaders_dir.join("rust-toolchain.toml"), shaders_dir.join("Cargo.toml"), shaders_dir.join("src")] {
         println!("cargo:rerun-if-changed={}", changed.display());
     }
 
@@ -25,6 +25,7 @@ fn main() {
         .arg("--manifest-path")
         .arg(shaders_dir.join("Cargo.toml"))
         .current_dir(&shaders_dir)
+        .env("CARGO_TARGET_DIR", shaders_dir.join("target"))
         .env_remove("RUSTC")
         .env_remove("RUSTDOC")
         .env_remove("RUSTC_WRAPPER")

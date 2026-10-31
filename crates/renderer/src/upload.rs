@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use sgpu::{BufferCopyRegion, QueueType, destroy_buffer, record, submit, wait};
-use shaders::{ChunkMeta, Face};
+use shaders::{ChunkMeta, Face, FaceRange};
 
 use crate::buffers::{ChunkMetaBuffer, QuadAllocation, QuadBuffer, StagingBuffer};
 
@@ -15,6 +15,14 @@ fn region(src_offset: u64, dst_offset: u64, size: u64) -> BufferCopyRegion {
 pub struct ChunkAllocation {
     quad: QuadAllocation,
     meta_offset: u32,
+}
+
+pub struct ChunkAllocationInfo {
+    pub faces: Vec<Face>,
+    pub faces_ranges: [FaceRange; 6],
+    pub origin: [f32; 4],
+    pub aabb_min: [f32; 4],
+    pub aabb_max: [f32; 4],
 }
 
 impl ChunkAllocation {
@@ -90,45 +98,50 @@ impl ChunkUploader {
         self.staging_buffer.buffer()
     }
 
-    /// Queue a chunk for upload. `make_meta` gets the allocation so it can store `first_quad()` /
-    /// `num_of_quads()` in the `ChunkMeta`. Returns `None` if the mesh is empty, can never fit in
-    /// the staging buffer, or there is no free quad space / meta slot.
-    ///
-    /// To replace a chunk (remesh): allocate the new one first, then `free_chunk` the old one.
-    /// They are shown/hidden in that order, so the chunk never disappears (it may overlap for a frame).
-    pub fn allocate_chunk(&mut self, faces: Vec<Face>, make_meta: impl FnOnce(&ChunkAllocation) -> ChunkMeta) -> Option<ChunkAllocation> {
-        if faces.is_empty() || faces.len() as u64 * 8 + META_SIZE > self.staging_buffer.slot_size() {
+    pub fn allocate_chunk(&mut self, chunk_alloc_info: ChunkAllocationInfo) -> Option<ChunkAllocation> {
+        if chunk_alloc_info.faces.is_empty() || chunk_alloc_info.faces.len() as u64 * 8 + META_SIZE > self.staging_buffer.slot_size() {
             return None;
         }
 
-        let quad = self.quad_buffer.allocate(faces.len() as u32)?;
+        let quad = self.quad_buffer.allocate(chunk_alloc_info.faces.len() as u32)?;
         let Some(meta_offset) = self.chunk_meta_buffer.allocate() else {
             self.quad_buffer.free(quad);
             return None;
         };
 
-        let chunk = ChunkAllocation { quad, meta_offset };
-        let meta = make_meta(&chunk);
+        let chunk_allocation = ChunkAllocation { quad, meta_offset };
+
+        let base_first_quad = chunk_allocation.first_quad();
+        let mut face_ranges = chunk_alloc_info.faces_ranges;
+        for range in &mut face_ranges {
+            range.first_quad += base_first_quad;
+        }
+
+        let meta = ChunkMeta {
+            origin: chunk_alloc_info.origin,
+            aabb_min: chunk_alloc_info.aabb_min,
+            aabb_max: chunk_alloc_info.aabb_max,
+            face_ranges,
+        };
+
         self.pending.push_back(Pending::Show {
-            faces,
-            quad_offset: chunk.quad.byte_offset(),
+            faces: chunk_alloc_info.faces,
+            quad_offset: chunk_allocation.quad.byte_offset(),
             meta,
             meta_offset,
         });
-        Some(chunk)
+        Some(chunk_allocation)
     }
 
     pub fn free_chunk(&mut self, chunk: ChunkAllocation) {
         self.pending.push_back(Pending::Hide { chunk });
     }
 
-    /// Call once per frame right after `acquire_image()` (that call guarantees this slot's previous
+    /// Call once per frame right after `acquire_image()` to set the slot (frame in flight)
     pub fn begin_frame(&mut self, slot: usize, frames_in_flight: usize) {
         self.frame += 1;
         self.staging_buffer.begin_frame(slot);
 
-        // Release memory of chunks that were hidden `frames_in_flight` frames ago: every frame that
-        // could still have drawn them has finished by now.
         let frame = self.frame;
         let mut i = 0;
         while i < self.retiring.len() {

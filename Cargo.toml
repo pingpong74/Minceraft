@@ -10,6 +10,8 @@ simple-window = { git = "https://github.com/pingpong74/simple-windowing" }
 sgpu = { git = "https://github.com/pingpong74/sgpu.git", package = "sgpu" }
 sgpu-taskgraph = { git = "https://github.com/pingpong74/sgpu.git", package = "sgpu-taskgraph" }
 sgpu-shaders = { git = "https://github.com/pingpong74/sgpu.git", package = "sgpu-shaders" }
+rand = "*"
+image = "*"
 glam = "*"
 noise = "*"
 offset-allocator = "*"

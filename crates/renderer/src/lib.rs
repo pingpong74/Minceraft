@@ -6,17 +6,16 @@ mod upload;
 
 use sgpu::*;
 use sgpu_taskgraph::{Id, TaskGraph};
-use shaders::{ChunkIndirectDrawCommand, ChunkMeta, Face};
+use shaders::ChunkIndirectDrawCommand;
 use simple_window::Window;
 
 use crate::{passes::add_passes, pipelines::Pipelines, texture::TextureArray, upload::ChunkUploader};
 
-pub use upload::ChunkAllocation;
+pub use upload::{ChunkAllocation, ChunkAllocationInfo};
 
 const CHUNK_COUNT: u32 = 10000;
 const MAX_DRAWS: u32 = 10000;
 const QUAD_COUNT: u32 = CHUNK_COUNT * 10000;
-/// Staging bytes per frame slot, and the most frame slots the swapchain may use.
 const STAGING_SLOT_SIZE: u64 = 8 << 20;
 const MAX_FRAME_SLOTS: usize = 4;
 
@@ -60,7 +59,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(window: &Window) -> Self {
+    pub fn new(window: &Window, debug: bool, texture_names: &'static [&'static str]) -> Self {
         let size = window.inner_size();
 
         sgpu::sgpu_init(&SgpuInititizationInfo::default_from_window(window));
@@ -69,7 +68,7 @@ impl Renderer {
             window,
             &SwapchainDescription {
                 format: Format::Rgba16Float,
-                frames_in_flight: 1,
+                frames_in_flight: 3,
                 width: size.width,
                 height: size.height,
             },
@@ -80,7 +79,7 @@ impl Renderer {
         graph.set_frames_in_flight(swapchain.frame_count());
 
         let _pipelines = Pipelines::new();
-        let _textures = TextureArray::new();
+        let _textures = TextureArray::new(texture_names);
         let uploader = ChunkUploader::new(CHUNK_COUNT, QUAD_COUNT, STAGING_SLOT_SIZE, MAX_FRAME_SLOTS);
 
         let res = Res {
@@ -126,7 +125,7 @@ impl Renderer {
         graph.present_target(res.swapchain);
         graph.compile(&res);
 
-        graph.set_node_timing(true);
+        graph.set_node_timing(debug);
 
         Self {
             graph,
@@ -170,8 +169,8 @@ impl Renderer {
         }
     }
 
-    pub fn allocate_chunk(&mut self, face_data: Vec<Face>, make_meta: impl FnOnce(&ChunkAllocation) -> ChunkMeta) -> Option<ChunkAllocation> {
-        self.uploader.allocate_chunk(face_data, make_meta)
+    pub fn allocate_chunk(&mut self, alloc_info: ChunkAllocationInfo) -> Option<ChunkAllocation> {
+        self.uploader.allocate_chunk(alloc_info)
     }
 
     pub fn free(&mut self, chunk_allocation: ChunkAllocation) {
